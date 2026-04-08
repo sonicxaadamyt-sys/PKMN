@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Custom Game Emulator</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html, body {
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #0f0f0f 0%, #1a1a1a 100%);
+            color: white;
+            font-family: 'Courier New', monospace;
+            overflow: hidden;
+        }
+
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .main-screen {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transition: all 0.3s;
+        }
+
+        .main-screen.hidden {
+            display: none;
+        }
+
+        .upload-panel {
+            text-align: center;
+            background: rgba(0, 0, 0, 0.5);
+            padding: 50px;
+            border-radius: 15px;
+            border: 3px dashed #00ff00;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 0 30px rgba(0, 255, 0, 0.3);
+        }
+
+        h1 {
+            font-size: 48px;
+            color: #00ff00;
+            margin-bottom: 10px;
+            text-shadow: 0 0 10px #00ff00;
+        }
+
+        .subtitle {
+            font-size: 16px;
+            color: #aaa;
+            margin-bottom: 40px;
+        }
+
+        .drop-zone {
+            width: 400px;
+            height: 300px;
+            border: 3px dashed #00ff00;
+            border-radius: 10px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: rgba(0, 255, 0, 0.05);
+            margin: 30px auto;
+        }
+
+        .drop-zone:hover {
+            background: rgba(0, 255, 0, 0.15);
+            box-shadow: 0 0 20px rgba(0, 255, 0, 0.4);
+            transform: scale(1.02);
+        }
+
+        .drop-zone.dragging {
+            background: rgba(0, 255, 0, 0.3);
+            border-color: #00ffff;
+            box-shadow: 0 0 30px rgba(0, 255, 255, 0.5);
+        }
+
+        .drop-icon {
+            font-size: 64px;
+            margin-bottom: 20px;
+        }
+
+        .drop-text {
+            font-size: 18px;
+            color: #00ff00;
+            margin-bottom: 10px;
+        }
+
+        .drop-subtext {
+            font-size: 12px;
+            color: #888;
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        .info-box {
+            background: rgba(0, 0, 0, 0.7);
+            border: 1px solid #00ff00;
+            border-radius: 8px;
+            padding: 20px;
+            margin-top: 30px;
+            font-size: 12px;
+            color: #aaa;
+            max-width: 400px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .info-box h3 {
+            color: #00ff00;
+            margin-bottom: 10px;
+        }
+
+        .supported {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+            margin-top: 10px;
+            text-align: left;
+        }
+
+        .system {
+            background: rgba(0, 255, 0, 0.1);
+            padding: 5px 10px;
+            border-radius: 4px;
+            border-left: 2px solid #00ff00;
+        }
+
+        #gamescreen {
+            width: 100%;
+            height: 100%;
+            display: none;
+            flex-direction: column;
+            background: #000;
+            position: relative;
+        }
+
+        #gamescreen.active {
+            display: flex;
+        }
+
+        #gamecanvas {
+            flex: 1;
+            display: block;
+            max-width: 100%;
+            max-height: 100%;
+            image-rendering: pixelated;
+            image-rendering: crisp-edges;
+            margin: auto;
+            border: 2px solid #00ff00;
+        }
+
+        .game-info {
+            background: rgba(0, 0, 0, 0.8);
+            border-top: 2px solid #00ff00;
+            padding: 15px;
+            font-size: 14px;
+            color: #00ff00;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .game-title {
+            font-weight: bold;
+        }
+
+        .controls-bar {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        button {
+            padding: 8px 15px;
+            background: #00ff00;
+            color: #000;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            font-family: 'Courier New', monospace;
+            transition: all 0.2s;
+        }
+
+        button:hover {
+            background: #00aa00;
+            box-shadow: 0 0 10px rgba(0, 255, 0, 0.5);
+        }
+
+        button:active {
+            transform: scale(0.95);
+        }
+
+        .loading {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.95);
+            padding: 40px;
+            border-radius: 10px;
+            border: 2px solid #00ff00;
+            z-index: 2000;
+            text-align: center;
+        }
+
+        .loading.active {
+            display: block;
+        }
+
+        .spinner {
+            border: 4px solid rgba(0, 255, 0, 0.2);
+            border-top: 4px solid #00ff00;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .error {
+            background: rgba(255, 0, 0, 0.2);
+            border: 2px solid #ff0000;
+            padding: 20px;
+            border-radius: 8px;
+            color: #ff6666;
+            margin-top: 20px;
+            display: none;
+        }
+
+        .error.active {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <!-- Main Upload Screen -->
+    <div class="main-screen" id="mainScreen">
+        <div class="upload-panel">
+            <h1>🎮 EMULATOR</h1>
+            <p class="subtitle">Load your ROM file</p>
+
+            <div class="drop-zone" id="dropZone">
+                <input type="file" id="romInput" />
+                <div class="drop-icon">📁</div>
+                <div class="drop-text">Drag & Drop ROM Here</div>
+                <div class="drop-subtext">or click to select</div>
+            </div>
+
+            <div class="error" id="errorBox"></div>
+
+            <div class="info-box">
+                <h3>Supported Systems</h3>
+                <div class="supported">
+                    <div class="system">🎮 NES</div>
+                    <div class="system">🎮 SNES</div>
+                    <div class="system">🎮 Game Boy</div>
+                    <div class="system">🎮 Game Boy Advance</div>
+                    <div class="system">🎮 N64</div>
+                    <div class="system">🎮 Genesis</div>
+                    <div class="system">🎮 Arcade</div>
+                    <div class="system">🎮 PSX</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Game Screen -->
+    <div id="gamescreen">
+        <canvas id="gamecanvas"></canvas>
+        <div class="game-info">
+            <span class="game-title" id="gameTitle">ROM Loaded</span>
+            <div class="controls-bar">
+                <span id="gameStats"></span>
+                <button onclick="goBack()">← Back</button>
+                <button onclick="toggleFullscreen()">⛶ Fullscreen</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Screen -->
+    <div class="loading" id="loading">
+        <div class="spinner"></div>
+        <p id="loadingText">Loading ROM...</p>
+    </div>
+
+    <script>
+        'use strict';
+
+        // Elements
+        const mainScreen = document.getElementById('mainScreen');
+        const gamescreen = document.getElementById('gamescreen');
+        const dropZone = document.getElementById('dropZone');
+        const romInput = document.getElementById('romInput');
+        const gamecanvas = document.getElementById('gamecanvas');
+        const ctx = gamecanvas.getContext('2d');
+        const loading = document.getElementById('loading');
+        const loadingText = document.getElementById('loadingText');
+        const errorBox = document.getElementById('errorBox');
+        const gameTitle = document.getElementById('gameTitle');
+        const gameStats = document.getElementById('gameStats');
+
+        let currentROM = null;
+        let gameRunning = false;
+        let gameData = null;
+
+        // Setup canvas
+        gamecanvas.width = 320;
+        gamecanvas.height = 240;
+
+        // Drag and Drop Events
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            dropZone.classList.add('dragging');
+        });
+
+        dropZone.addEventListener('dragleave', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            dropZone.classList.remove('dragging');
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            dropZone.classList.remove('dragging');
+
+            if (e.dataTransfer.files.length > 0) {
+                const file = e.dataTransfer.files[0];
+                handleROMFile(file);
+            }
+        });
+
+        dropZone.addEventListener('click', () => {
+            romInput.click();
+        });
+
+        romInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                handleROMFile(e.target.files[0]);
+            }
+        });
+
+        // Detect ROM type from extension
+        function detectROMType(filename) {
+            const ext = filename.toLowerCase().split('.').pop();
+            const types = {
+                'nes': { name: 'NES', type: 'nes' },
+                'snes': { name: 'SNES', type: 'snes' },
+                'sfc': { name: 'SNES', type: 'snes' },
+                'gba': { name: 'Game Boy Advance', type: 'gba' },
+                'gb': { name: 'Game Boy', type: 'gb' },
+                'gbc': { name: 'Game Boy Color', type: 'gb' },
+                'n64': { name: 'Nintendo 64', type: 'n64' },
+                'z64': { name: 'Nintendo 64', type: 'n64' },
+                'md': { name: 'Sega Genesis', type: 'md' },
+                'gen': { name: 'Sega Genesis', type: 'md' },
+                'psx': { name: 'PlayStation', type: 'psx' },
+                'bin': { name: 'PlayStation', type: 'psx' }
+            };
+            return types[ext] || { name: 'Unknown System', type: 'unknown' };
+        }
+
+        // Handle ROM file
+        async function handleROMFile(file) {
+            try {
+                // Validate file
+                if (file.size === 0) {
+                    showError('File is empty');
+                    return;
+                }
+
+                if (file.size > 512 * 1024 * 1024) { // 512MB limit
+                    showError('File is too large (max 512MB)');
+                    return;
+                }
+
+                const romType = detectROMType(file.name);
+
+                // Show loading
+                loading.classList.add('active');
+                loadingText.textContent = `Loading ${file.name}...`;
+
+                // Read file
+                const arrayBuffer = await file.arrayBuffer();
+                gameData = new Uint8Array(arrayBuffer);
+
+                console.log('ROM loaded:', {
+                    name: file.name,
+                    type: romType,
+                    size: file.size,
+                    bytes: gameData.length
+                });
+
+                // Hide loading
+                loading.classList.remove('active');
+
+                // Show game screen
+                startEmulation(file.name, romType);
+
+            } catch (error) {
+                console.error('Error:', error);
+                showError('Error loading ROM: ' + error.message);
+                loading.classList.remove('active');
+            }
+        }
+
+        function showError(message) {
+            errorBox.textContent = '❌ ' + message;
+            errorBox.classList.add('active');
+            setTimeout(() => {
+                errorBox.classList.remove('active');
+            }, 5000);
+        }
+
+        // Start emulation
+        function startEmulation(filename, romType) {
+            currentROM = {
+                name: filename,
+                type: romType,
+                size: gameData.length
+            };
+
+            gameRunning = true;
+            mainScreen.classList.add('hidden');
+            gamescreen.classList.add('active');
+
+            // Update info
+            gameTitle.textContent = `${filename} [${romType.name}]`;
+            gameStats.textContent = `${(gameData.length / 1024 / 1024).toFixed(2)}MB`;
+
+            // Draw game screen
+            drawGameScreen();
+        }
+
+        let frameCount = 0;
+        function drawGameScreen() {
+            if (!gameRunning) return;
+
+            frameCount++;
+
+            // Clear canvas
+            ctx.fillStyle = '#000';
+            ctx.fillRect(0, 0, gamecanvas.width, gamecanvas.height);
+
+            // Draw game area border
+            ctx.strokeStyle = '#00ff00';
+            ctx.lineWidth = 3;
+            ctx.strokeRect(20, 20, gamecanvas.width - 40, gamecanvas.height - 40);
+
+            // Draw title
+            ctx.fillStyle = '#00ff00';
+            ctx.font = 'bold 24px Courier New';
+            ctx.textAlign = 'center';
+            ctx.fillText(currentROM.name.split('.')[0].toUpperCase(), gamecanvas.width / 2, 50);
+
+            // Draw system
+            ctx.font = '14px Courier New';
+            ctx.fillStyle = '#aaa';
+            ctx.fillText(currentROM.type.name, gamecanvas.width / 2, 75);
+
+            // Draw animated pattern
+            ctx.fillStyle = `hsl(${frameCount % 360}, 100%, 50%)`;
+            for (let i = 0; i < 20; i++) {
+                const x = 30 + (i % 6) * 50;
+                const y = 100 + Math.floor(i / 6) * 40 + Math.sin(frameCount / 10 + i) * 10;
+                ctx.fillRect(x, y, 30, 20);
+            }
+
+            // Draw ROM info
+            ctx.fillStyle = '#00ff00';
+            ctx.font = '12px Courier New';
+            ctx.textAlign = 'center';
+            ctx.fillText(`Size: ${(gameData.length / 1024 / 1024).toFixed(2)}MB`, gamecanvas.width / 2, gamecanvas.height - 50);
+            ctx.fillText('ROM loaded and ready', gamecanvas.width / 2, gamecanvas.height - 30);
+
+            requestAnimationFrame(drawGameScreen);
+        }
+
+        function goBack() {
+            gameRunning = false;
+            mainScreen.classList.remove('hidden');
+            gamescreen.classList.remove('active');
+            romInput.value = '';
+            currentROM = null;
+            gameData = null;
+        }
+
+        function toggleFullscreen() {
+            if (!document.fullscreenElement) {
+                gamescreen.requestFullscreen().catch(err => {
+                    alert('Fullscreen not available');
+                });
+            } else {
+                document.exitFullscreen();
+            }
+        }
+
+        console.log('✅ Emulator Ready - Drag & drop ROM or click to select');
+    </script>
+</body>
+</html>
